@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="pt" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ThermoWatch — Laboratório IMED</title>
+<meta name="description" content="Três experimentos guiados: efeito do ruído, filtro e atraso, histerese. Para uso em sala de aula (IMED).">
+<style>
+:root{
+  --bg:#09111f; --surface:#101c2d; --surface-2:#142338; --surface-3:#0d1827;
+  --stroke:#263950; --stroke-soft:#1d3045;
+  --text:#eaf2fb; --text-muted:#91a5bc; --text-dim:#71869d;
+  --accent:#45dec1; --accent-2:#2a9cc2;
+  --info:#75a7ff; --danger:#ff647c; --warn:#ffbf69; --ok:#57d6a0;
+  --shadow-sm:0 2px 8px #02071233; --shadow-md:0 8px 24px #02071255; --shadow-lg:0 18px 45px #02071255;
+  --glow:0 0 18px #45dec155;
+  --font-ui:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'JetBrains Mono','Consolas',monospace;
+  --fs-xs:11px; --fs-sm:12px; --fs-md:14px; --fs-lg:16px; --fs-xl:20px; --fs-2xl:26px; --fs-3xl:34px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-full:999px;
+  --dur-fast:150ms; --dur-med:250ms; --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="light"]{
+  --bg:#f5f7fb; --surface:#ffffff; --surface-2:#eef2f8; --surface-3:#f0f4fa;
+  --stroke:#d4dce8; --stroke-soft:#e3e9f1;
+  --text:#0f1b2a; --text-muted:#4a5b70; --text-dim:#7a8ba0;
+  --accent:#149e86; --accent-2:#0f7a68;
+  --info:#3a7bd5; --danger:#d63b52; --warn:#c8862a; --ok:#2a9d6f;
+  --shadow-sm:0 2px 8px #0f1b2a0d; --shadow-md:0 8px 24px #0f1b2a12; --shadow-lg:0 18px 45px #0f1b2a1a;
+  --glow:0 0 14px #149e8633;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:radial-gradient(ellipse at 50% 0%,#142b43 0%,transparent 45%),var(--bg);
+  color:var(--text); font-family:var(--font-ui); font-size:var(--fs-md);
+  line-height:1.6; min-height:100vh; transition:background var(--dur-med) var(--ease),color var(--dur-med) var(--ease);
+}
+:root[data-theme="light"] body{background:radial-gradient(ellipse at 50% 0%,#e8eef7 0%,transparent 45%),var(--bg)}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--r-sm)}
+a{color:var(--accent);text-decoration:none}
+
+/* TOPBAR */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-3) var(--sp-5);
+  background:color-mix(in srgb,var(--surface) 92%,transparent);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--stroke);
+}
+.brand{display:flex;align-items:center;gap:var(--sp-3);text-decoration:none;color:inherit}
+.brand-icon{
+  width:40px;height:40px;border-radius:var(--r-md);
+  background:linear-gradient(140deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;color:#061923;font-weight:900;font-size:19px;
+  box-shadow:var(--glow);
+}
+.brand h1{font-size:var(--fs-lg);letter-spacing:-.3px;font-weight:800}
+.brand small{display:block;font-size:var(--fs-xs);color:var(--text-muted);font-weight:600;letter-spacing:1px}
+.nav{display:flex;gap:var(--sp-3);align-items:center}
+.nav a{color:var(--text-muted);font-weight:600;font-size:var(--fs-sm);padding:6px 10px;border-radius:var(--r-sm)}
+.nav a:hover{color:var(--text);background:var(--surface-2)}
+.nav a.active{color:var(--accent)}
+.top-actions{display:flex;gap:var(--sp-2);align-items:center}
+@media(max-width:760px){.nav{display:none}}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);
+  padding:10px 18px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--stroke);
+  color:var(--text);font-weight:700;font-size:var(--fs-sm);
+  transition:all var(--dur-fast) var(--ease);white-space:nowrap;
+}
+.btn:hover{transform:translateY(-1px);border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#061923}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 85%,white)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* LAYOUT */
+.container{max-width:1400px;margin:0 auto;padding:var(--sp-5)}
+@media(max-width:760px){.container{padding:var(--sp-3)}}
+
+/* HEADER */
+.page-head{text-align:center;padding:var(--sp-6) 0 var(--sp-5)}
+.page-head .eyebrow{
+  display:inline-block;font-size:var(--fs-xs);letter-spacing:2px;
+  color:var(--accent);text-transform:uppercase;font-weight:800;margin-bottom:var(--sp-2);
+}
+.page-head h1{font-size:clamp(28px,4vw,var(--fs-3xl));letter-spacing:-1px;margin-bottom:var(--sp-2)}
+.page-head p{color:var(--text-muted);font-size:var(--fs-lg);max-width:600px;margin:0 auto}
+
+/* EXP CARDS */
+.exp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);margin-bottom:var(--sp-5)}
+@media(max-width:1100px){.exp-grid{grid-template-columns:1fr}}
+.exp-card{
+  background:linear-gradient(150deg,var(--surface),var(--surface-3) 85%);
+  border:1px solid var(--stroke);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-md);padding:var(--sp-5);
+  display:flex;flex-direction:column;gap:var(--sp-3);
+  transition:all var(--dur-med) var(--ease);position:relative;overflow:hidden;
+}
+.exp-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.exp-card.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),var(--shadow-md)}
+.exp-card .num{
+  position:absolute;top:var(--sp-3);right:var(--sp-4);
+  font-size:64px;font-weight:900;color:color-mix(in srgb,var(--accent) 12%,transparent);
+  line-height:1;font-family:var(--font-mono);pointer-events:none;
+}
+.exp-card h2{font-size:var(--fs-xl);letter-spacing:-.4px;position:relative;z-index:1}
+.exp-card .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;position:relative;z-index:1}
+.exp-card .tag{
+  font-size:10px;padding:3px 8px;border-radius:var(--r-full);
+  background:var(--surface-2);border:1px solid var(--stroke);color:var(--text-muted);font-weight:700;
+}
+.exp-card .tag.accent{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.exp-card p{color:var(--text-muted);font-size:var(--fs-sm);line-height:1.6;position:relative;z-index:1}
+.exp-card .actions{display:flex;gap:var(--sp-2);margin-top:auto;position:relative;z-index:1}
+
+/* WORKSPACE */
+.workspace{
+  display:none;background:linear-gradient(150deg,var(--surface),var(--surface-3) 85%);
+  border:1px solid var(--accent);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);padding:var(--sp-5);margin-bottom:var(--sp-5);
+}
+.workspace.show{display:block;animation:fadeIn var(--dur-med) var(--ease)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.ws-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-4)}
+.ws-head h2{font-size:var(--fs-xl);letter-spacing:-.4px}
+.ws-head .subheading{font-size:var(--fs-sm);color:var(--text-muted);margin-top:4px}
+
+.ws-controls{
+  display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;
+  padding:var(--sp-3);background:var(--surface-3);border:1px solid var(--stroke-soft);
+  border-radius:var(--r-md);margin-bottom:var(--sp-4);
+}
+.ws-controls label{font-size:var(--fs-sm);font-weight:600;display:flex;align-items:center;gap:var(--sp-2)}
+.ws-controls select, .ws-controls input[type="number"]{
+  background:var(--surface);border:1px solid var(--stroke);border-radius:var(--r-sm);
+  color:var(--text);padding:6px 10px;font-size:var(--fs-sm);font-family:inherit;
+}
+
+.ws-charts{display:grid;grid-template-columns:1fr;gap:var(--sp-4);margin-bottom:var(--sp-4)}
+.chart-box{background:var(--surface-3);border:1px solid var(--stroke-soft);border-radius:var(--r-md);padding:var(--sp-3)}
+.chart-box .chart-title{font-size:var(--fs-sm);font-weight:800;margin-bottom:var(--sp-2);display:flex;justify-content:space-between;align-items:center}
+.chart-box .chart-title .legend{display:flex;gap:var(--sp-3);font-size:10px;color:var(--text-muted);font-weight:500}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-item .sw{width:12px;height:3px;border-radius:2px;background:currentColor}
+.legend-item .sw.dash{height:0;border-top:2px dashed currentColor;background:none}
+
+.canvas-wrap{position:relative;width:100%;height:280px}
+.canvas-wrap canvas{width:100%;height:100%;display:block}
+
+.ws-results{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-3);
+  margin-bottom:var(--sp-4);
+}
+.result-card{
+  background:var(--surface-3);border:1px solid var(--stroke-soft);
+  border-radius:var(--r-md);padding:var(--sp-3);
+}
+.result-card .label{font-size:var(--fs-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.result-card .value{font-size:var(--fs-xl);font-family:var(--font-mono);font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.result-card .value.warn{color:var(--warn)}
+.result-card .value.danger{color:var(--danger)}
+.result-card .value.ok{color:var(--ok)}
+
+.question-box{
+  background:color-mix(in srgb,var(--warn) 8%,var(--surface));
+  border-left:4px solid var(--warn);border-radius:var(--r-md);
+  padding:var(--sp-4);margin-bottom:var(--sp-4);
+}
+.question-box h3{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:1px;color:var(--warn);margin-bottom:var(--sp-2);font-weight:800}
+.question-box p{font-size:var(--fs-md);line-height:1.6}
+.question-box details{margin-top:var(--sp-3);font-size:var(--fs-sm)}
+.question-box summary{cursor:pointer;color:var(--accent);font-weight:700;user-select:none}
+.question-box details[open] summary{margin-bottom:var(--sp-2)}
+.question-box .answer{color:var(--text-muted);line-height:1.7;padding:var(--sp-2);background:var(--surface-2);border-radius:var(--r-sm);margin-top:var(--sp-2)}
+
+.ws-actions{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+
+/* Footer */
+.footer{
+  border-top:1px solid var(--stroke);padding:var(--sp-5);
+  color:var(--text-dim);font-size:var(--fs-sm);text-align:center;margin-top:var(--sp-6);
+}
+.footer .links{display:flex;gap:var(--sp-4);justify-content:center;margin-bottom:var(--sp-2);flex-wrap:wrap}
+.footer a{color:var(--text-muted);font-weight:600}
+
+.toast{
+  position:fixed;right:22px;bottom:22px;max-width:320px;
+  background:color-mix(in srgb,var(--accent) 15%,var(--surface));
+  color:var(--text);border:1px solid var(--accent);
+  padding:12px 16px;border-radius:var(--r-md);
+  font-size:var(--fs-sm);box-shadow:var(--shadow-lg);
+  opacity:0;transform:translateY(8px);pointer-events:none;
+  transition:all var(--dur-med) var(--ease);z-index:1000;
+}
+.toast.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="brand-icon">T</div>
+    <div><h1>ThermoWatch</h1><small>LABORATÓRIO IMED</small></div>
+  </a>
+  <nav class="nav">
+    <a href="index.html">Início</a>
+    <a href="app.html">Dashboard</a>
+    <a href="laboratorio.html" class="active">Laboratório</a>
+    <a href="sobre.html">Sobre</a>
+  </nav>
+  <div class="top-actions">
+    <button class="btn" id="themeBtn" aria-label="Alternar tema">🌙</button>
+  </div>
+</header>
+
+<main class="container">
+  <section class="page-head">
+    <div class="eyebrow">🎓 Modo Laboratório</div>
+    <h1>Experimentos guiados</h1>
+    <p>Três cenários para entender, na prática, o efeito do ruído, o trade-off do filtro e a importância da histerese.</p>
+  </section>
+
+  <div class="exp-grid" id="expGrid">
+    <article class="exp-card" data-exp="1">
+      <div class="num">01</div>
+      <h2>Efeito do ruído</h2>
+      <div class="meta"><span class="tag accent">★☆☆</span><span class="tag">~3 min</span><span class="tag">ruído</span></div>
+      <p>Compare três cenários de ruído elétrico (0 V, 0,05 V, 0,10 V) e descubra qual dispara alarme falso.</p>
+      <div class="actions"><button class="btn primary" data-load="1">▶ Carregar experimento</button></div>
+    </article>
+
+    <article class="exp-card" data-exp="2">
+      <div class="num">02</div>
+      <h2>Filtro e atraso</h2>
+      <div class="meta"><span class="tag accent">★★☆</span><span class="tag">~4 min</span><span class="tag">filtro</span></div>
+      <p>Compare três janelas de média móvel (1, 10, 30 amostras) e veja o trade-off entre suavidade e tempo de resposta.</p>
+      <div class="actions"><button class="btn primary" data-load="2">▶ Carregar experimento</button></div>
+    </article>
+
+    <article class="exp-card" data-exp="3">
+      <div class="num">03</div>
+      <h2>Histerese</h2>
+      <div class="meta"><span class="tag accent">★★☆</span><span class="tag">~3 min</span><span class="tag">alarme</span></div>
+      <p>Veja a diferença entre rearme próximo do alarme (chattering) e rearme distante (estável).</p>
+      <div class="actions"><button class="btn primary" data-load="3">▶ Carregar experimento</button></div>
+    </article>
+  </div>
+
+  <!-- WORKSPACE -->
+  <section class="workspace" id="workspace">
+    <div class="ws-head">
+      <div>
+        <h2 id="wsTitle">Experimento</h2>
+        <div class="subheading" id="wsSubtitle"></div>
+      </div>
+      <button class="btn" id="wsClose" aria-label="Fechar experimento">✕ Fechar</button>
+    </div>
+
+    <div class="ws-controls">
+      <label>Duração (s): <input type="number" id="wsDuration" min="60" max="360" step="30" value="120"></label>
+      <label>Velocidade:
+        <select id="wsSpeed">
+          <option value="5">5×</option>
+          <option value="10" selected>10×</option>
+          <option value="20">20×</option>
+          <option value="50">50×</option>
+        </select>
+      </label>
+      <button class="btn primary" id="wsRun">▶ Executar</button>
+      <button class="btn" id="wsReset">↻ Limpar</button>
+    </div>
+
+    <div class="ws-charts">
+      <div class="chart-box">
+        <div class="chart-title">
+          <span>Temperatura — cenários sobrepostos</span>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="expChart" aria-label="Gráfico do experimento"></canvas></div>
+      </div>
+    </div>
+
+    <div class="ws-results" id="wsResults"></div>
+
+    <div class="question-box">
+      <h3>💭 Para discutir</h3>
+      <p id="wsQuestion">—</p>
+      <details>
+        <summary>Ver resposta sugerida</summary>
+        <div class="answer" id="wsAnswer">—</div>
+      </details>
+    </div>
+
+    <div class="ws-actions">
+      <button class="btn" id="wsCsv">↓ Exportar comparação (CSV)</button>
+      <button class="btn" id="wsPng">▧ Guardar gráfico (PNG)</button>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="links">
+      <a href="index.html">Início</a><a href="app.html">Dashboard</a>
+      <a href="laboratorio.html">Laboratório</a><a href="sobre.html">Sobre</a>
+    </div>
+    <p>ThermoWatch · Laboratório IMED · v1.0 · Outubro 2026</p>
+  </footer>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const safeLS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const themeBtn = $('themeBtn');
+const root = document.documentElement;
+root.dataset.theme = safeLS.get('tw-theme') || 'dark';
+updateThemeBtn();
+themeBtn.addEventListener('click', () => {
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  safeLS.set('tw-theme', root.dataset.theme);
+  updateThemeBtn(); drawChart();
+});
+function updateThemeBtn(){
+  themeBtn.textContent = root.dataset.theme === 'dark' ? '🌙' : '☀️';
+}
+
+let toastTimer;
+function toast(msg){
+  const el = $('toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* ═══ CORE ═══ */
+const NTC = {
+  R0:10000, T0:298.15, BETA:3950, VCC:5, R_FIX:10000, ADC_MAX:1023,
+  resistance(t){ return this.R0 * Math.exp(this.BETA*(1/(t+273.15)-1/this.T0)); },
+  voltage(r){ return this.VCC * this.R_FIX/(r + this.R_FIX); },
+  adc(v){ return Math.max(0, Math.min(this.ADC_MAX, Math.round(v/this.VCC*this.ADC_MAX))); },
+  tempFromAdc(a){
+    const v = Math.max(0.001, Math.min(this.VCC-0.001, a/this.ADC_MAX*this.VCC));
+    const r = this.R_FIX * (this.VCC/v - 1);
+    return 1/(1/this.T0 + Math.log(r/this.R0)/this.BETA) - 273.15;
+  }
+};
+function temperatureProfile(t){
+  let base;
+  if (t < 15) base = 39 + 1.3*Math.sin(t/7);
+  else if (t < 60) base = 40 + (t-15)*0.65;
+  else if (t < 85) base = 69.5 + 3*Math.sin((t-60)/6) + (t-60)*0.05;
+  else if (t < 110) base = 72.5 - (t-85)*0.45;
+  else base = 49 + 0.6*Math.sin((t-110)/5);
+  return base + 0.2*Math.sin(t*0.7);
+}
+function gaussian(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function simulate(config){
+  const { duration, noise, window, alarm, reset, speed: _s } = config;
+  const out = { times:[], real:[], raw:[], filtered:[], alarmActive:[], adc:[], alarmEvents:0 };
+  const buf = [];
+  let active = false;
+  const N = Math.max(1, Math.min(30, window));
+  const effReset = Math.min(reset, alarm - 1);
+  for (let t = 0; t < duration; t++){
+    const real = temperatureProfile(t);
+    const r = NTC.resistance(real);
+    const idealV = NTC.voltage(r);
+    const noisyV = Math.max(0.001, Math.min(NTC.VCC, idealV + gaussian()*noise));
+    const adc = NTC.adc(noisyV);
+    const measured = NTC.tempFromAdc(adc);
+    buf.push(measured);
+    if (buf.length > N) buf.shift();
+    const filtered = buf.reduce((a,b)=>a+b,0)/buf.length;
+    if (!active && filtered >= alarm){ active = true; out.alarmEvents++; }
+    else if (active && filtered <= effReset){ active = false; }
+    out.times.push(t); out.real.push(real); out.raw.push(measured);
+    out.filtered.push(filtered); out.alarmActive.push(active); out.adc.push(adc);
+  }
+  return out;
+}
+
+/* ═══ EXPERIMENTOS ═══ */
+const EXPERIMENTS = {
+  1: {
+    title: 'Experimento 1 — O efeito do ruído',
+    subtitle: 'Três cenários variando só o ruído elétrico. O que muda?',
+    configs: [
+      { label: 'Ruído 0 V', color: '#57d6a0', noise: 0, window: 5, alarm: 65, reset: 55 },
+      { label: 'Ruído 0,05 V', color: '#ffbf69', noise: 0.05, window: 5, alarm: 65, reset: 55 },
+      { label: 'Ruído 0,10 V', color: '#ff647c', noise: 0.10, window: 5, alarm: 65, reset: 55 }
+    ],
+    question: 'Qual cenário dispara alarme falso? Por quê?',
+    answer: 'Com 0,10 V, a leitura bruta oscila muito e a média móvel (janela 5) não suaviza o suficiente. Picos chegam a cruzar o limite de 65 °C, disparando alarmes falsos. Com 0 V, a curva é limpa e só cruza quando a temperatura real passa do limite.'
+  },
+  2: {
+    title: 'Experimento 2 — Filtro e atraso',
+    subtitle: 'Três janelas de média móvel. Trade-off entre suavidade e resposta.',
+    configs: [
+      { label: 'Janela 1 (sem filtro)', color: '#ff647c', noise: 0.05, window: 1, alarm: 65, reset: 55 },
+      { label: 'Janela 10', color: '#45dec1', noise: 0.05, window: 10, alarm: 65, reset: 55 },
+      { label: 'Janela 30', color: '#75a7ff', noise: 0.05, window: 30, alarm: 65, reset: 55 }
+    ],
+    question: 'Qual janela você usaria num data center e por quê?',
+    answer: 'Janela 10 é o equilíbrio recomendado: suaviza o ruído sem introduzir atraso excessivo (5 s). Janela 1 deixa passar todo o ruído. Janela 30 reage bem devagar — em um data center isso pode significar perder o momento de arrefecer o rack.'
+  },
+  3: {
+    title: 'Experimento 3 — Histerese',
+    subtitle: 'Rearme próximo × distante. Compare estabilidade do alarme.',
+    configs: [
+      { label: 'Sem histerese (rearme 64 °C)', color: '#ff647c', noise: 0.03, window: 5, alarm: 65, reset: 64 },
+      { label: 'Com histerese (rearme 55 °C)', color: '#45dec1', noise: 0.03, window: 5, alarm: 65, reset: 55 }
+    ],
+    question: 'Por que a histerese importa em sistemas reais?',
+    answer: 'Sem histerese, quando a temperatura filtrada oscila em torno de 65 °C, o alarme liga e desliga repetidamente — o chattering. Isso desgasta relés, gera alertas falsos e confunde operadores. Com histerese de 10 °C, o alarme só desliga em 55 °C, garantindo estabilidade.'
+  }
+};
+
+let currentExp = null;
+let currentResults = [];
+let runId = 0;
+
+function loadExperiment(n){
+  currentExp = n;
+  const exp = EXPERIMENTS[n];
+  if (!exp) return;
+  document.querySelectorAll('.exp-card').forEach(c => c.classList.toggle('active', Number(c.dataset.exp) === n));
+  $('wsTitle').textContent = exp.title;
+  $('wsSubtitle').textContent = exp.subtitle;
+  $('wsQuestion').textContent = exp.question;
+  $('wsAnswer').textContent = exp.answer;
+  $('workspace').classList.add('show');
+  $('workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('wsDuration').value = n === 2 ? 180 : 120;
+  clearResults();
+}
+
+function clearResults(){
+  currentResults = [];
+  $('wsResults').innerHTML = '';
+  drawChart();
+}
+
+function runExperiment(){
+  if (!currentExp) return;
+  const exp = EXPERIMENTS[currentExp];
+  const duration = Math.max(60, Math.min(360, Number($('wsDuration').value) || 120));
+  const speed = Number($('wsSpeed').value) || 10;
+  currentResults = exp.configs.map(cfg => ({
+    label: cfg.label, color: cfg.color,
+    ...simulate({ ...cfg, duration, speed })
+  }));
+  renderResults(exp);
+  drawChart();
+  toast(`Experimento executado (${duration} s, ${speed}×).`);
+}
+
+function renderResults(exp){
+  const container = $('wsResults');
+  container.innerHTML = '';
+  currentResults.forEach(r => {
+    const last = r.filtered[r.filtered.length - 1];
+    const max = Math.max(...r.filtered);
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <div class="label" style="color:${r.color}">${r.label}</div>
+      <div class="value">Máx: ${max.toFixed(1)} °C</div>
+      <div class="label" style="margin-top:8px">Última: ${last.toFixed(1)} °C</div>
+      <div class="label" style="margin-top:8px;color:${r.alarmEvents > 0 ? 'var(--danger)' : 'var(--ok)'}">Alarmes: ${r.alarmEvents}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+/* ═══ CHART ═══ */
+const chart = $('expChart');
+const ctx = chart.getContext('2d');
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function resizeCanvas(){
+  const rect = chart.getBoundingClientRect();
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  chart.width = Math.round(rect.width*dpr);
+  chart.height = Math.round(rect.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function drawChart(){
+  resizeCanvas();
+  const rect = chart.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const w = rect.width, h = rect.height;
+  ctx.clearRect(0,0,w,h);
+  const padL=46, padR=15, padT=13, padB=31;
+  const pw = w-padL-padR, ph = h-padT-padB;
+  const duration = currentResults[0] ? currentResults[0].times.length : (Number($('wsDuration').value) || 120);
+  const x = t => padL + (t/duration)*pw;
+  const y = v => padT + (85-v)/(85-30)*ph;
+
+  const strokeSoft = cssVar('--stroke-soft');
+  const stroke = cssVar('--stroke');
+  const textMuted = cssVar('--text-muted');
+
+  ctx.font = '10px Inter,system-ui,sans-serif';
+  ctx.lineWidth = 1;
+  for (let temp=30; temp<=85; temp+=5){
+    const yy = y(temp);
+    ctx.strokeStyle = strokeSoft;
+    ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w-padR, yy); ctx.stroke();
+    ctx.fillStyle = textMuted; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(temp+'°', padL-9, yy);
+  }
+  for (let sec=0; sec<=duration; sec+=Math.max(30, Math.round(duration/4))){
+    const xx = x(sec);
+    ctx.strokeStyle = stroke;
+    ctx.beginPath(); ctx.moveTo(xx, padT); ctx.lineTo(xx, h-padB); ctx.stroke();
+    ctx.fillStyle = textMuted; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(sec+'s', xx, h-padB+9);
+  }
+
+  // limites do exp
+  if (currentExp){
+    const exp = EXPERIMENTS[currentExp];
+    const alarm = exp.configs[0].alarm;
+    const reset = Math.min(exp.configs[0].reset, alarm-1);
+    drawLine([0,duration],[alarm,alarm],cssVar('--danger'),1.5,[4,4],x,y);
+    drawLine([0,duration],[reset,reset],cssVar('--warn'),1.2,[4,4],x,y);
+  }
+
+  // cenários
+  currentResults.forEach(r => {
+    drawLine(r.times, r.real, r.color, 1.5, [4,3], x, y);
+    drawLine(r.times, r.filtered, r.color, 2, [], x, y);
+  });
+
+  // legenda
+  const leg = $('legend');
+  leg.innerHTML = '';
+  currentResults.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.style.color = r.color;
+    item.innerHTML = `<span class="sw"></span>${r.label}`;
+    leg.appendChild(item);
+  });
+}
+function drawLine(xs, ys, color, width, dash, xFn, yFn){
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash);
+  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath();
+  let started=false;
+  for (let i=0; i<ys.length; i++){
+    const xx=xFn(xs[i]), yy=yFn(ys[i]);
+    if (!started){ ctx.moveTo(xx,yy); started=true; }
+    else ctx.lineTo(xx,yy);
+  }
+  ctx.stroke(); ctx.restore();
+}
+
+/* ═══ CSV / PNG ═══ */
+function exportCSV(){
+  if (!currentResults.length){ toast('Execute o experimento primeiro.'); return; }
+  const rows = ['experimento;configuracao;tempo_s;temperatura_real_C;temperatura_bruta_C;temperatura_filtrada_C;alarme_ativo'];
+  currentResults.forEach(r => {
+    r.times.forEach((t,i) => {
+      rows.push([
+        currentExp, r.label, t,
+        r.real[i].toFixed(3), r.raw[i].toFixed(3), r.filtered[i].toFixed(3),
+        r.alarmActive[i] ? 'sim' : 'nao'
+      ].join(';'));
+    });
+  });
+  const csv = '\ufeff' + rows.join('\r\n');
+  download(new Blob([csv], {type:'text/csv;charset=utf-8;'}), `experimento_${currentExp}_${Date.now()}.csv`);
+  toast('CSV do experimento preparado.');
+}
+function exportPNG(){
+  if (!currentResults.length){ toast('Execute o experimento primeiro.'); return; }
+  const a = document.createElement('a');
+  a.download = `experimento_${currentExp}.png`;
+  a.href = chart.toDataURL('image/png');
+  a.click();
+  toast('PNG preparado.');
+}
+function download(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1200);
+}
+
+/* ═══ EVENTOS ═══ */
+document.querySelectorAll('[data-load]').forEach(btn => {
+  btn.addEventListener('click', () => loadExperiment(Number(btn.dataset.load)));
+});
+$('wsClose').addEventListener('click', () => {
+  $('workspace').classList.remove('show');
+  document.querySelectorAll('.exp-card').forEach(c => c.classList.remove('active'));
+});
+$('wsRun').addEventListener('click', runExperiment);
+$('wsReset').addEventListener('click', () => { clearResults(); toast('Resultados limpos.'); });
+$('wsCsv').addEventListener('click', exportCSV);
+$('wsPng').addEventListener('click', exportPNG);
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawChart, 150);
+});
+
+drawChart();
+})();
+</script>
+</body>
+</html>

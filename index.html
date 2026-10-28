@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ThermoWatch — Monitor de Temperatura de Servidor</title>
+<meta name="description" content="Da bancada ao data center: monitorização térmica didática com NTC 10kΩ, ADC 10 bits, filtro de média móvel e alarme com histerese.">
+<style>
+:root{
+  --bg:#09111f; --surface:#101c2d; --surface-2:#142338; --surface-3:#0d1827;
+  --stroke:#263950; --stroke-soft:#1d3045;
+  --text:#eaf2fb; --text-muted:#91a5bc; --text-dim:#71869d;
+  --accent:#45dec1; --accent-2:#2a9cc2;
+  --info:#75a7ff; --danger:#ff647c; --warn:#ffbf69; --ok:#57d6a0;
+  --shadow-sm:0 2px 8px #02071233; --shadow-md:0 8px 24px #02071255; --shadow-lg:0 18px 45px #02071255;
+  --glow:0 0 18px #45dec155;
+  --font-ui:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'JetBrains Mono','Consolas',monospace;
+  --fs-xs:11px; --fs-sm:12px; --fs-md:14px; --fs-lg:16px; --fs-xl:20px; --fs-2xl:26px; --fs-3xl:34px; --fs-4xl:48px; --fs-5xl:64px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px; --sp-8:64px;
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-full:999px;
+  --dur-fast:150ms; --dur-med:250ms; --dur-slow:400ms;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="light"]{
+  --bg:#f5f7fb; --surface:#ffffff; --surface-2:#eef2f8; --surface-3:#f0f4fa;
+  --stroke:#d4dce8; --stroke-soft:#e3e9f1;
+  --text:#0f1b2a; --text-muted:#4a5b70; --text-dim:#7a8ba0;
+  --accent:#149e86; --accent-2:#0f7a68;
+  --info:#3a7bd5; --danger:#d63b52; --warn:#c8862a; --ok:#2a9d6f;
+  --shadow-sm:0 2px 8px #0f1b2a0d; --shadow-md:0 8px 24px #0f1b2a12; --shadow-lg:0 18px 45px #0f1b2a1a;
+  --glow:0 0 14px #149e8633;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:radial-gradient(ellipse at 50% 0%,#142b43 0%,transparent 45%),var(--bg);
+  color:var(--text); font-family:var(--font-ui); font-size:var(--fs-md);
+  line-height:1.6; min-height:100vh;
+  transition:background var(--dur-med) var(--ease),color var(--dur-med) var(--ease);
+  overflow-x:hidden;
+}
+:root[data-theme="light"] body{background:radial-gradient(ellipse at 50% 0%,#e8eef7 0%,transparent 45%),var(--bg)}
+a{color:var(--accent);text-decoration:none}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--r-sm)}
+
+/* TOPBAR */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-3) var(--sp-5);
+  background:color-mix(in srgb,var(--surface) 92%,transparent);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--stroke);
+}
+.brand{display:flex;align-items:center;gap:var(--sp-3)}
+.brand-icon{
+  width:40px;height:40px;border-radius:var(--r-md);
+  background:linear-gradient(140deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;color:#061923;font-weight:900;font-size:19px;
+  box-shadow:var(--glow);
+}
+.brand h1{font-size:var(--fs-lg);letter-spacing:-.3px;font-weight:800}
+.brand small{display:block;font-size:var(--fs-xs);color:var(--text-muted);font-weight:600;letter-spacing:1px}
+.nav{display:flex;gap:var(--sp-3);align-items:center}
+.nav a{color:var(--text-muted);font-weight:600;font-size:var(--fs-sm);padding:6px 10px;border-radius:var(--r-sm);transition:all var(--dur-fast) var(--ease)}
+.nav a:hover{color:var(--text);background:var(--surface-2);text-decoration:none}
+.nav a.active{color:var(--accent)}
+.top-actions{display:flex;gap:var(--sp-2);align-items:center}
+@media(max-width:760px){.nav{display:none}}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);
+  padding:10px 18px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--stroke);
+  color:var(--text);font-weight:700;font-size:var(--fs-sm);
+  transition:transform var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease);
+  white-space:nowrap;text-decoration:none;
+}
+.btn:hover{transform:translateY(-1px);border-color:var(--accent);text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#061923}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 85%,white)}
+.btn.lg{padding:14px 24px;font-size:var(--fs-md);border-radius:var(--r-lg)}
+
+/* HERO */
+.hero{
+  max-width:1200px;margin:0 auto;padding:var(--sp-8) var(--sp-5) var(--sp-7);
+  text-align:center;position:relative;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 60%);
+  pointer-events:none;z-index:-1;
+}
+.hero .eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:var(--fs-xs);letter-spacing:3px;color:var(--accent);
+  font-weight:800;text-transform:uppercase;margin-bottom:var(--sp-4);
+  padding:6px 14px;border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--accent) 10%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+}
+.hero h1{
+  font-size:clamp(36px,6vw,var(--fs-5xl));line-height:1.05;letter-spacing:-2px;
+  font-weight:800;margin-bottom:var(--sp-4);
+}
+.hero h1 .grad{
+  background:linear-gradient(140deg,var(--accent),var(--info));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero p.lead{
+  font-size:clamp(16px,1.8vw,var(--fs-xl));color:var(--text-muted);
+  max-width:680px;margin:0 auto var(--sp-5);line-height:1.55;
+}
+.hero-actions{display:flex;gap:var(--sp-3);justify-content:center;flex-wrap:wrap}
+.hero-visual{
+  margin:var(--sp-7) auto 0;max-width:920px;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:var(--sp-2);align-items:center;
+}
+.hero-visual .step{
+  background:var(--surface);border:1px solid var(--stroke);
+  border-radius:var(--r-md);padding:var(--sp-3);
+  font-size:var(--fs-xs);color:var(--text-muted);text-align:center;
+  transition:all var(--dur-med) var(--ease);position:relative;
+}
+.hero-visual .step strong{display:block;color:var(--text);font-size:var(--fs-sm);margin-bottom:4px}
+.hero-visual .step:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.hero-visual .step:not(:last-child)::after{
+  content:'→';position:absolute;right:-16px;top:50%;
+  transform:translateY(-50%);color:var(--accent);font-weight:900;font-size:16px;
+}
+@media(max-width:760px){
+  .hero-visual{grid-template-columns:repeat(2,1fr)}
+  .hero-visual .step:not(:last-child)::after{display:none}
+}
+
+/* SECTIONS */
+.section{max-width:1200px;margin:0 auto;padding:var(--sp-7) var(--sp-5)}
+.section-head{text-align:center;margin-bottom:var(--sp-6)}
+.section-head .eyebrow{
+  display:inline-block;font-size:var(--fs-xs);letter-spacing:2px;
+  color:var(--accent);text-transform:uppercase;font-weight:800;margin-bottom:var(--sp-2);
+}
+.section-head h2{font-size:clamp(26px,3.5vw,var(--fs-3xl));letter-spacing:-1px;margin-bottom:var(--sp-2)}
+.section-head p{color:var(--text-muted);font-size:var(--fs-lg);max-width:600px;margin:0 auto}
+
+/* CARDS */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4)}
+@media(max-width:900px){.cards{grid-template-columns:1fr}}
+.card{
+  background:linear-gradient(150deg,var(--surface),var(--surface-3) 85%);
+  border:1px solid var(--stroke);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-md);padding:var(--sp-5);
+  transition:all var(--dur-med) var(--ease);
+}
+.card:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.card .icon{
+  width:52px;height:52px;border-radius:var(--r-md);
+  background:color-mix(in srgb,var(--accent) 15%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  display:grid;place-items:center;color:var(--accent);
+  font-size:24px;margin-bottom:var(--sp-3);
+}
+.card h3{font-size:var(--fs-xl);margin-bottom:var(--sp-2);letter-spacing:-.4px}
+.card p{color:var(--text-muted);font-size:var(--fs-sm);line-height:1.6}
+
+/* STEPS */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);counter-reset:step}
+@media(max-width:900px){.steps{grid-template-columns:1fr}}
+.step-card{
+  background:var(--surface);border:1px solid var(--stroke);
+  border-radius:var(--r-lg);padding:var(--sp-5);position:relative;
+}
+.step-card::before{
+  content:counter(step);counter-increment:step;
+  position:absolute;top:-16px;left:var(--sp-5);
+  width:40px;height:40px;border-radius:50%;
+  background:linear-gradient(140deg,var(--accent),var(--accent-2));
+  color:#061923;font-weight:900;font-size:18px;
+  display:grid;place-items:center;
+  box-shadow:var(--glow);
+}
+.step-card h3{margin:var(--sp-3) 0 var(--sp-2);font-size:var(--fs-lg)}
+.step-card p{color:var(--text-muted);font-size:var(--fs-sm)}
+
+/* IMED BANNER */
+.imed-banner{
+  background:linear-gradient(140deg,color-mix(in srgb,var(--accent) 14%,var(--surface)),var(--surface));
+  border:1px solid var(--accent);border-radius:var(--r-lg);
+  padding:var(--sp-6);text-align:center;position:relative;overflow:hidden;
+}
+.imed-banner::before{
+  content:'🎓';position:absolute;right:-20px;top:-20px;
+  font-size:180px;opacity:.06;pointer-events:none;
+}
+.imed-banner h2{font-size:var(--fs-2xl);margin-bottom:var(--sp-2);letter-spacing:-.6px}
+.imed-banner p{color:var(--text-muted);max-width:600px;margin:0 auto var(--sp-4);font-size:var(--fs-lg)}
+
+/* CTA FINAL */
+.cta{
+  text-align:center;padding:var(--sp-7) var(--sp-4);
+  background:linear-gradient(140deg,var(--surface),var(--surface-3));
+  border:1px solid var(--stroke);border-radius:var(--r-lg);
+  margin:0 auto var(--sp-7);max-width:1200px;
+}
+.cta h2{font-size:var(--fs-2xl);margin-bottom:var(--sp-3);letter-spacing:-.6px}
+.cta p{color:var(--text-muted);margin-bottom:var(--sp-4)}
+
+/* FOOTER */
+.footer{
+  border-top:1px solid var(--stroke);
+  padding:var(--sp-6) var(--sp-5);
+  color:var(--text-dim);font-size:var(--fs-sm);
+  text-align:center;
+}
+.footer .links{display:flex;gap:var(--sp-4);justify-content:center;margin-bottom:var(--sp-3);flex-wrap:wrap}
+.footer a{color:var(--text-muted);font-weight:600}
+.footer a:hover{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="brand" style="text-decoration:none;color:inherit">
+    <div class="brand-icon">T</div>
+    <div>
+      <h1>ThermoWatch</h1>
+      <small>MONITOR DE TEMPERATURA</small>
+    </div>
+  </a>
+  <nav class="nav">
+    <a href="index.html" class="active">Início</a>
+    <a href="app.html">Dashboard</a>
+    <a href="laboratorio.html">Laboratório</a>
+    <a href="sobre.html">Sobre</a>
+  </nav>
+  <div class="top-actions">
+    <button class="btn" id="themeBtn" aria-label="Alternar tema">🌙</button>
+    <a href="app.html" class="btn primary">Abrir Dashboard →</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="eyebrow">🎓 Projeto IMED · Instrumentação</div>
+  <h1>Monitorização térmica<br><span class="grad">do sensor ao alarme</span></h1>
+  <p class="lead">
+    Da bancada ao data center: uma plataforma que simula, ensina e demonstra
+    como um sensor NTC 10 kΩ vira decisão de alarme — com ADC de 10 bits,
+    média móvel e histerese de dois limites.
+  </p>
+  <div class="hero-actions">
+    <a href="app.html" class="btn primary lg">▶ Abrir Dashboard</a>
+    <a href="laboratorio.html" class="btn lg">🧪 Ver Laboratório</a>
+  </div>
+
+  <div class="hero-visual">
+    <div class="step"><strong>NTC 10kΩ</strong>sensor</div>
+    <div class="step"><strong>Divisor</strong>tensão</div>
+    <div class="step"><strong>ADC 10 bits</strong>quantização</div>
+    <div class="step"><strong>Média móvel</strong>filtro</div>
+    <div class="step"><strong>Histerese</strong>alarme</div>
+  </div>
+</section>
+
+<!-- O QUE É -->
+<section class="section">
+  <div class="section-head">
+    <div class="eyebrow">O que é</div>
+    <h2>Três pilares, uma cadeia de medição</h2>
+    <p>Do mundo físico ao digital — cada etapa existe para resolver um problema real.</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="icon">🌡</div>
+      <h3>Sensor NTC 10kΩ</h3>
+      <p>Termistor cuja resistência cai quando a temperatura sobe. Modelado pela equação Beta, com β ≈ 3950 K. É a transdução física.</p>
+    </div>
+    <div class="card">
+      <div class="icon">▦</div>
+      <h3>ADC de 10 bits</h3>
+      <p>Converte a tensão do divisor em 1024 níveis digitais (0–1023). Cada LSB equivale a ~4,88 mV — a ponte do analógico para o digital.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⚡</div>
+      <h3>Alarme com histerese</h3>
+      <p>Dois limites (alarme e rearme) evitam o <em>chattering</em> — alarmes falsos que piscam quando a temperatura oscila em torno de um único valor.</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMO USAR -->
+<section class="section">
+  <div class="section-head">
+    <div class="eyebrow">Como usar</div>
+    <h2>Em três passos</h2>
+    <p>Sem instalação. Sem servidor. Tudo no navegador.</p>
+  </div>
+  <div class="steps">
+    <div class="step-card">
+      <h3>Abra o Dashboard</h3>
+      <p>Clique em "▶ Iniciar" para começar a simulação. A temperatura sobe, o ADC responde, o filtro suaviza, o alarme decide.</p>
+    </div>
+    <div class="step-card">
+      <h3>Configure</h3>
+      <p>Arraste os sliders à esquerda para mudar o limite de alarme, a janela do filtro, o ruído elétrico e a velocidade.</p>
+    </div>
+    <div class="step-card">
+      <h3>Exporte</h3>
+      <p>Guarde os dados em CSV, o gráfico em PNG, ou gere um relatório de sessão completo em PDF — com hash de integridade.</p>
+    </div>
+  </div>
+</section>
+
+<!-- IMED -->
+<section class="section">
+  <div class="imed-banner">
+    <h2>Feito para o IMED 🎓</h2>
+    <p>
+      O <strong>Modo Laboratório</strong> traz três experimentos guiados — efeito do ruído, filtro e atraso, histerese —
+      prontos para usar em sala de aula. Cada experimento configura tudo, mostra comparações lado a lado e faz
+      perguntas para discussão.
+    </p>
+    <a href="laboratorio.html" class="btn primary lg">Ver experimentos →</a>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta">
+  <h2>Pronto para começar?</h2>
+  <p>A simulação roda em tempo real. Sem cadastro, sem envio de dados.</p>
+  <a href="app.html" class="btn primary lg">▶ Abrir Dashboard</a>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="links">
+    <a href="index.html">Início</a>
+    <a href="app.html">Dashboard</a>
+    <a href="laboratorio.html">Laboratório</a>
+    <a href="sobre.html">Sobre</a>
+  </div>
+  <p>ThermoWatch · Monitor de temperatura de servidor · v1.0 · Outubro 2026</p>
+  <p style="margin-top:6px;color:var(--text-dim);font-size:var(--fs-xs)">Simulação didática · sem envio de dados · projeto IMED</p>
+</footer>
+
+<script>
+const safeLS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+(() => {
+  const themeBtn = document.getElementById('themeBtn');
+  const root = document.documentElement;
+  root.dataset.theme = safeLS.get('tw-theme') || 'dark';
+  updateThemeBtn();
+  themeBtn.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    safeLS.set('tw-theme', root.dataset.theme);
+    updateThemeBtn();
+  });
+  function updateThemeBtn() {
+    themeBtn.textContent = root.dataset.theme === 'dark' ? '🌙' : '☀️';
+    themeBtn.setAttribute('aria-label', root.dataset.theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro');
+  }
+})();
+</script>
+</body>
+</html>
